@@ -140,15 +140,44 @@ class RegisterController extends Controller
                             $this->user_firstname();
                             break;
                         default:
-                            
+                            Session_levels::where("phone_number",$this->phone_number)->update(["session_level"=>0]);
+                            $this->screen_response="You have to register to proceed\n";
+                            $this->screen_response.="0.Back";
+                            $this->header;
+                            $this->ussd_proceed($this->screen_response);
                     }
+                    break;
+                case 1:
+                    User::where("phone_number",$this->phone_number)->update(["first_name"=>$this->user_response]);
+                    //update level to 2
+                    Session_levels::where("phone_number",$this->phone_number)->update(["session_level"=>2]);
+                    //prompt user to enter last name
+                    $this->user_lastname();
+                    break;
 
+                case 2:
+                    User::where("phone_number",$this->phone_number)->update(["first_name"=>$this->user_response]);
+                    //update level to 3
+                    Session_levels::where("phone_number",$this->phone_number)->update(["session_level"=>3]);
+                    //prompt user to enter email address
+                    $this->user_email();
+                    break;
+                case 3:
+                    Session_levels::create([
+                        "session_id"    =>$this->session_id,
+                        "phone_number"  =>$this->phone_number,
+                        "session_level" =>0
+                    ]);
+                    $this->displayMainMenu();
+                    break;
+                default:
+                    Session_levels::where("phone_number",$this->phone_number)->update(["session_level"=>0]);
+                    $this->screen_response="Invalid,you have to choose a service to proceed\n";
+                    $this->header;
+                    $this->ussd_proceed($this->screen_response);
             }
-
         }
-
     }
-
     public function displayMainMenu()
     {
 
