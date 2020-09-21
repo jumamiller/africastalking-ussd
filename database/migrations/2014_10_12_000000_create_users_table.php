@@ -21,9 +21,9 @@ class CreateUsersTable extends Migration
             $table->string('phone_number')->nullable();
             $table->string('email')->unique()->nullable();
             $table->enum('status',['ACTIVE','INACTIVE']);
+            //$table->softDeletes();
         });
     }
-
     /**
      * Reverse the migrations.
      *
@@ -32,5 +32,6 @@ class CreateUsersTable extends Migration
     public function down()
     {
         Schema::dropIfExists('users');
+
     }
 }

@@ -99,35 +99,64 @@ class RegisterController extends Controller
                     }
                     break;
                 case 2:
+                    $first_name=trim(htmlspecialchars($this->user_response));
+                    if(!empty($first_name)){
+                        (new User())->where("phone_number",$this->phone_number)->update(["first_name"=>$first_name]);
+                        $this->user_lastname();
+                        (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>3]);
+                    }else{
 
-                    $first_name=$this->user_response;
-                    //dd($first_name);
-                    (new User())->where("phone_number",$this->phone_number)->update(["first_name"=>$first_name]);
-                    $this->user_lastname();
-                    (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>3]);
+                        $this->screen_response="Enter a valid first name to proceed\n";
+                        $this->ussd_finish($this->screen_response);
+                        (new User())->where('phone_number',$this->phone_number)->delete();
+                    }
                     break;
                 case 3:
-                    (new User())->where("phone_number",$this->phone_number)->update(["last_name"=>$this->user_response]);
-                    $this->username();
-                    (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>4]);
+                    $last_name=trim(htmlspecialchars($this->user_response));
+                    if(!empty($last_name)){
+                        (new User())->where("phone_number",$this->phone_number)->update(["last_name"=>$last_name]);
+                        $this->username();
+                        (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>4]);
+                    }else{
+
+                        $this->screen_response="Enter a valid last name to proceed\n";
+                        $this->ussd_finish($this->screen_response);
+                        (new User())->where('phone_number',$this->phone_number)->delete();
+                    }
                     break;
                 case 4:
-                    (new User())->where("phone_number",$this->phone_number)->update(["username"=>$this->user_response]);
-                    $this->user_email();
-                    (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>5]);
+                    $username=trim(htmlspecialchars($this->user_response));
+                    if(!empty($username)){
+                        (new User())->where("phone_number",$this->phone_number)->update(["username"=>$username]);
+                        $this->user_email();
+                        (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>5]);
+                    }else{
+                        (new User())->where('phone_number')->delete();
+                        $this->screen_response="Enter a valid username to proceed\n";
+                        $this->ussd_finish($this->screen_response);
+                        (new User())->where('phone_number',$this->phone_number)->delete();
+                    }
                     break;
                 case 5:
-                    (new User())->where("phone_number",$this->phone_number)->update(["email"=>$this->user_response]);
-                    //take user to main menu
-                    (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>0]);
-                    $this->display_main_menu();
+                    $email=filter_var($this->user_response,FILTER_VALIDATE_EMAIL);
+                    if(!empty($email)){
+                        (new User())->where("phone_number",$this->phone_number)->update(["email"=>$email]);
+                        //take user to main menu
+                        (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>1]);
+                        $this->display_main_menu();
+                    }else{
+                        (new User())->where('phone_number')->delete();
+                        $this->screen_response="Enter a valid email to proceed\n";
+                        $this->ussd_finish($this->screen_response);
+                        (new User())->where('phone_number',$this->phone_number)->delete();
+                    }
                     break;
             }
         }
     }
     public function display_main_menu()
     {
-        $this->screen_response="<strong>Welcome to Safaricom Services</strong>\n";
+        $this->screen_response="<strong>Welcome to Safaricom Online Services</strong>\n";
         $this->screen_response.="1.Send me today's football fixtures\n";
         $this->screen_response.="2.Please call me!\n";
         $this->screen_response.="3.Send me airtime";
@@ -136,7 +165,7 @@ class RegisterController extends Controller
     }
     public function display_registration_form()
     {
-        $this->screen_response="<strong>Welcome to Safaricom Classes</strong>\n";
+        $this->screen_response="<strong>Welcome to Safaricom Online Services</strong>\n";
         $this->screen_response.="1.Register to proceed\n";
         $this->screen_response.="0.Back\n";
         $this->header;
@@ -194,7 +223,9 @@ class RegisterController extends Controller
     }
     public function ussd_finish($stop)
     {
+        (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>0]);
         echo "END $stop";
+
     }
     public function user_firstname()
     {
