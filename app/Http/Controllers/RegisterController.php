@@ -3,53 +3,28 @@
 namespace App\Http\Controllers;
 
 use AfricasTalking\SDK\AfricasTalking;
+use App\Models\Session;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Session_levels;
 
 class RegisterController extends Controller
 {
-    /**
-     * AT values POST request
-     * @var $session_id
-     * @var $service_code
-     * @var $phone_number
-     * @var $text
-     */
-
-    private $session_id;
-    private $service_code;
-    private $phone_number;
-    private $text;
-
-    /**
-     * AT api credentials
-     * @var $AT_username
-     * @var $AT_api_key
-     */
-
-    private $AT_username;
-    private $AT_api_key;
+    private $session_id,$service_code,$phone_number,$text;
+    private $AT_username, $AT_api_key;
     private AfricasTalking $AT;
 
-    protected string $screen_response;
+    protected string $screen_response,$header;
+    protected $text_array,$user_response;
     protected int $level;
-    protected $user_response;
-    protected $text_array;
-    protected string $header;
 
     public function __construct(Request $request){
-        /**
-         * get the POST request values
-         */
+
         $this->session_id   =$request->get('sessionId');
         $this->service_code =$request->get('serviceCode');
         $this->phone_number =$request->get('phoneNumber');
         $this->text         =$request->get('text');
 
-        /**
-         * initialise reusable variables
-         */
         $this->AT_api_key   =env('AT_API_KEY');
         $this->AT_username  =env('AT_USERNAME');
         $this->AT           =new AfricasTalking($this->AT_username,$this->AT_api_key);
@@ -63,129 +38,107 @@ class RegisterController extends Controller
     }
 
     public function register_user() {
-        //current level
-        $current_level =Session_levels::where("session_id",$this->session_id)
-                                      ->pluck('session_level')
-                                      ->first();
-        if(!empty($current_level)){
-            $this->level=$current_level;
+        $new_level=(new Session_levels())->where('phone_number',$this->phone_number)->pluck('session_level')->first();
+        if(!empty($new_level)){
+            $this->level=$new_level;
         }
-
-        //check if the user is in the database
-        $user=User::where("phone_number",$this->phone_number)
-                    ->get(['first_name','last_name','phone_number','email'])->first();
-        $current_user=User::where("phone_number",$this->phone_number)->pluck("last_name")->first();
-        //change to string
-        $username=implode("",$current_user);
-
-        if($user->count() > 0)
-        {
-            //user found > login user
-           switch($this->level){
-               case 0:
-                   switch ($this->user_response){
-                       case "":
-                           Session_levels::create([
-                               "session_id"     =>$this->session_id,
-                               "session_level"  =>1,
-                               "phone_number"   =>$this->phone_number
-                           ]);
-                           $this->displayMainMenu();
-                           break;
-
-                       default:
-                           Session_levels::where("phone_number",$this->phone_number)->update(["session_level"=>0]);
-                           $this->screen_response="Invalid,you have to choose a service to proceed\n";
-                           $this->header;
-                           $this->ussd_proceed($this->screen_response);
-                   }
-                   break;
-               case 1:
-                   switch($this->user_response){
-                       case "1":
-                           $this->send_sms();
-                           break;
-                       case "2":
-                           $this->voice_call();
-                           break;
-                       case "3":
-                           $this->send_airtime();
-                           break;
-                       default:
-                           Session_levels::where("phone_number",$this->phone_number)->update(["session_level"=>0]);
-                           $this->screen_response="Invalid,you have to choose a service to proceed\n";
-                           $this->header;
-                           $this->ussd_proceed($this->screen_response);
-                   }
-                   break;
-           }
+        $user=(new User())->whereNotNull('email')->count();
+       // dd($user);
+        if($user>0){
+            switch ($this->level){
+                case 0:
+                    switch ($this->user_response){
+                        case "":
+                            (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>1]);
+                            $this->display_main_menu();
+                            break;
+                    }
+                    break;
+                case 1:
+                    switch ($this->user_response){
+                        case "1":
+                            $this->send_sms();
+                            break;
+                        case "2":
+                            $this->voice_call();
+                            break;
+                        case "3":
+                            $this->send_airtime();
+                            break;
+                    }
+                    break;
+            }
         }
-        else
-        {
-            //user not found > register user
+        else{
             switch ($this->level){
                 case 0:
                     switch ($this->user_response){
                         case "":
                             Session_levels::create([
-                                "session_id"    =>$this->session_id,
-                                "phone_number"  =>$this->phone_number,
-                                "session_level" =>1
+                                'session_id'    =>$this->session_id,
+                                'session_level' =>1,
+                                'phone_number'  =>$this->phone_number
+                            ]);
+                            User::create([
+                                'phone_number'  =>$this->phone_number
                             ]);
 
-                            User::create([
-                                "phone_number"  =>$this->phone_number
-                            ]);
-                            //prompt user to enter name
-                            $this->user_firstname();
+                            $this->display_registration_form();
                             break;
-                        default:
-                            Session_levels::where("phone_number",$this->phone_number)->update(["session_level"=>0]);
-                            $this->screen_response="You have to register to proceed\n";
-                            $this->screen_response.="0.Back";
-                            $this->header;
-                            $this->ussd_proceed($this->screen_response);
                     }
                     break;
                 case 1:
-                    User::where("phone_number",$this->phone_number)->update(["first_name"=>$this->user_response]);
-                    //update level to 2
-                    Session_levels::where("phone_number",$this->phone_number)->update(["session_level"=>2]);
-                    //prompt user to enter last name
-                    $this->user_lastname();
+                    switch ($this->user_response){
+                        case "1":
+                            $this->user_firstname();
+                            (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>2]);
+                            break;
+                        case "0":
+                            (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>0]);
+                            break;
+                    }
                     break;
-
                 case 2:
-                    User::where("phone_number",$this->phone_number)->update(["first_name"=>$this->user_response]);
-                    //update level to 3
-                    Session_levels::where("phone_number",$this->phone_number)->update(["session_level"=>3]);
-                    //prompt user to enter email address
-                    $this->user_email();
+
+                    $first_name=$this->user_response;
+                    //dd($first_name);
+                    (new User())->where("phone_number",$this->phone_number)->update(["first_name"=>$first_name]);
+                    $this->user_lastname();
+                    (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>3]);
                     break;
                 case 3:
-                    Session_levels::create([
-                        "session_id"    =>$this->session_id,
-                        "phone_number"  =>$this->phone_number,
-                        "session_level" =>0
-                    ]);
-                    $this->displayMainMenu();
+                    (new User())->where("phone_number",$this->phone_number)->update(["last_name"=>$this->user_response]);
+                    $this->username();
+                    (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>4]);
                     break;
-                default:
-                    Session_levels::where("phone_number",$this->phone_number)->update(["session_level"=>0]);
-                    $this->screen_response="Invalid,you have to choose a service to proceed\n";
-                    $this->header;
-                    $this->ussd_proceed($this->screen_response);
+                case 4:
+                    (new User())->where("phone_number",$this->phone_number)->update(["username"=>$this->user_response]);
+                    $this->user_email();
+                    (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>5]);
+                    break;
+                case 5:
+                    (new User())->where("phone_number",$this->phone_number)->update(["email"=>$this->user_response]);
+                    //take user to main menu
+                    (new Session_levels())->where('phone_number',$this->phone_number)->update(['session_level'=>0]);
+                    $this->display_main_menu();
+                    break;
             }
         }
     }
-    public function displayMainMenu()
+    public function display_main_menu()
     {
-
-        $this->screen_response="<strong>Welcome to HLAB Online Services</strong>\n";
+        $this->screen_response="<strong>Welcome to Safaricom Services</strong>\n";
         $this->screen_response.="1.Send me today's football fixtures\n";
         $this->screen_response.="2.Please call me!\n";
         $this->screen_response.="3.Send me airtime";
-
+        $this->header;
+        $this->ussd_proceed($this->screen_response);
+    }
+    public function display_registration_form()
+    {
+        $this->screen_response="<strong>Welcome to Safaricom Classes</strong>\n";
+        $this->screen_response.="1.Register to proceed\n";
+        $this->screen_response.="0.Back\n";
         $this->header;
         $this->ussd_proceed($this->screen_response);
     }
@@ -229,7 +182,7 @@ class RegisterController extends Controller
         $from   ="+254717720862";
         $to     =$this->phone_number;
 
-        $this->AT->call($from,$to);
+        $this->AT->voice($from,$to);
         $this->screen_response="Please wait as we place your call on the line";
         $this->header;
         $this->ussd_finish($this->screen_response);
@@ -246,13 +199,21 @@ class RegisterController extends Controller
     public function user_firstname()
     {
         $this->screen_response="Enter your first name\n";
+        $this->ussd_proceed($this->screen_response);
     }
     public function user_lastname()
     {
         $this->screen_response="Enter your last name\n";
+        $this->ussd_proceed($this->screen_response);
+    }
+    public function username()
+    {
+        $this->screen_response="Enter your username\n";
+        $this->ussd_proceed($this->screen_response);
     }
     public function user_email()
     {
         $this->screen_response="Enter your email address\n";
+        $this->ussd_proceed($this->screen_response);
     }
 }
