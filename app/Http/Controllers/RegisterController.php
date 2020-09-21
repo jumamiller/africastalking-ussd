@@ -109,6 +109,7 @@ class RegisterController extends Controller
                         $this->screen_response="Enter a valid first name to proceed\n";
                         $this->ussd_finish($this->screen_response);
                         (new User())->where('phone_number',$this->phone_number)->delete();
+                        (new Session_levels())->where('phone_number',$this->phone_number)->delete();
                     }
                     break;
                 case 3:
@@ -122,6 +123,7 @@ class RegisterController extends Controller
                         $this->screen_response="Enter a valid last name to proceed\n";
                         $this->ussd_finish($this->screen_response);
                         (new User())->where('phone_number',$this->phone_number)->delete();
+                        (new Session_levels())->where('phone_number',$this->phone_number)->delete();
                     }
                     break;
                 case 4:
@@ -135,6 +137,8 @@ class RegisterController extends Controller
                         $this->screen_response="Enter a valid username to proceed\n";
                         $this->ussd_finish($this->screen_response);
                         (new User())->where('phone_number',$this->phone_number)->delete();
+                        (new Session_levels())->where('phone_number',$this->phone_number)->delete();
+
                     }
                     break;
                 case 5:
@@ -149,6 +153,7 @@ class RegisterController extends Controller
                         $this->screen_response="Enter a valid email to proceed\n";
                         $this->ussd_finish($this->screen_response);
                         (new User())->where('phone_number',$this->phone_number)->delete();
+                        (new Session_levels())->where('phone_number',$this->phone_number)->delete();
                     }
                     break;
             }
